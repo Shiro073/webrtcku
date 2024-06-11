@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>kelompok 9</title>
+    <link rel="shortcut icon" type="image/ico" href="/favicon.ico" />
+    <link rel="stylesheet" href="css/main.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.3/font/bootstrap-icons.css" />
+  </head>
+
+  <body>
+    <h1></h1>
+
+    <label for="roomId">Room ID</label>
+    <input id="roomId" type="text" />
+    <button id="joinBtn" class="btn btn-primary active">Masuk</button>
+    <button id="leaveBtn" class="btn btn-primary active">Keluar</button>
+
+    <p id="notification"></p>
+
+    <div id="localVideo-container">
+      <video autoplay playsinline muted></video>
+    </div>
+
+    <div id="videos">
+      <div id="videoGrid" class="grid-container"></div>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://webrtc.github.io/adapter/adapter-latest.js"></script>
+    <script src="js/webrtc.js"></script>
+    <script src="js/main.js"></script>
+  </body>
+</html>

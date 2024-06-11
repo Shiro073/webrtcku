@@ -1,11 +1,14 @@
 'use strict';
+
 const socket = io.connect();
+
 const localVideo = document.querySelector('#localVideo-container video');
 const videoGrid = document.querySelector('#videoGrid');
 const notification = document.querySelector('#notification');
 const notify = (message) => {
     notification.innerHTML = message;
 };
+
 const pcConfig = {
     iceServers: [
         {
@@ -36,7 +39,7 @@ const pcConfig = {
 };
 
 /**
- * Initialize WebRTC
+ * Initialize webrtc
  */
 const webrtc = new Webrtc(socket, pcConfig, {
     log: true,
@@ -97,7 +100,7 @@ webrtc.addEventListener('kicked', () => {
 });
 
 webrtc.addEventListener('userLeave', (e) => {
-    console.log(`User ${e.detail.socketId} left the room`);
+    console.log(`user ${e.detail.socketId} left room`);
 });
 
 /**
@@ -123,7 +126,7 @@ webrtc.addEventListener('newUser', (e) => {
     videoContainer.append(p);
     videoContainer.append(video);
 
-    // If user is admin, add kick buttons
+    // If user is admin add kick buttons
     if (webrtc.isAdmin) {
         const kickBtn = document.createElement('button');
         kickBtn.setAttribute('class', 'kick_btn');
@@ -132,18 +135,64 @@ webrtc.addEventListener('newUser', (e) => {
         kickBtn.addEventListener('click', () => {
             webrtc.kickUser(socketId);
         });
+
         videoContainer.append(kickBtn);
     }
     videoGrid.append(videoContainer);
 });
 
 /**
- * Handle user removal
+ * Handle user got removed
  */
 webrtc.addEventListener('removeUser', (e) => {
     const socketId = e.detail.socketId;
     if (!socketId) {
-        // Remove all remote stream elements
+        // remove all remote stream elements
         videoGrid.innerHTML = '';
+        return;
+    }
+    document.getElementById(socketId).remove();
+});
+
+/**
+ * Handle errors
+ */
+webrtc.addEventListener('error', (e) => {
+    const error = e.detail.error;
+    console.error(error);
+
+    notify(error);
+});
+
+/**
+ * Handle notifications
+ */
+webrtc.addEventListener('notification', (e) => {
+    const notif = e.detail.notification;
+    console.log(notif);
+
+    notify(notif);
+});
+
+/**
+ * Share Screen
+ */
+const shareScreenBtn = document.querySelector('#shareScreenBtn');
+shareScreenBtn.addEventListener('click', async () => {
+    try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        // Handle screen stream just like local stream
+        webrtc.addTrack(screenStream.getTracks()[0], screenStream);
+
+        // Replace local video with screen stream
+        localVideo.srcObject = screenStream;
+
+        screenStream.getTracks()[0].addEventListener('ended', () => {
+            // When the screen share stops, switch back to the camera stream
+            webrtc.getLocalStream(true, { width: 640, height: 480 })
+                .then((stream) => (localVideo.srcObject = stream));
+        });
+    } catch (error) {
+        notify(`Error sharing screen: ${error.message}`);
     }
 });

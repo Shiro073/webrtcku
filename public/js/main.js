@@ -1,14 +1,11 @@
-'use strinct';
-
+'use strict';
 const socket = io.connect();
-
 const localVideo = document.querySelector('#localVideo-container video');
 const videoGrid = document.querySelector('#videoGrid');
 const notification = document.querySelector('#notification');
 const notify = (message) => {
     notification.innerHTML = message;
 };
-
 const pcConfig = {
     iceServers: [
         {
@@ -39,7 +36,7 @@ const pcConfig = {
 };
 
 /**
- * Initialize webrtc
+ * Initialize WebRTC
  */
 const webrtc = new Webrtc(socket, pcConfig, {
     log: true,
@@ -100,7 +97,7 @@ webrtc.addEventListener('kicked', () => {
 });
 
 webrtc.addEventListener('userLeave', (e) => {
-    console.log(`user ${e.detail.socketId} left room`);
+    console.log(`User ${e.detail.socketId} left the room`);
 });
 
 /**
@@ -126,7 +123,7 @@ webrtc.addEventListener('newUser', (e) => {
     videoContainer.append(p);
     videoContainer.append(video);
 
-    // If user is admin add kick buttons
+    // If user is admin, add kick buttons
     if (webrtc.isAdmin) {
         const kickBtn = document.createElement('button');
         kickBtn.setAttribute('class', 'kick_btn');
@@ -135,41 +132,18 @@ webrtc.addEventListener('newUser', (e) => {
         kickBtn.addEventListener('click', () => {
             webrtc.kickUser(socketId);
         });
-
         videoContainer.append(kickBtn);
     }
     videoGrid.append(videoContainer);
 });
 
 /**
- * Handle user got removed
+ * Handle user removal
  */
 webrtc.addEventListener('removeUser', (e) => {
     const socketId = e.detail.socketId;
     if (!socketId) {
-        // remove all remote stream elements
+        // Remove all remote stream elements
         videoGrid.innerHTML = '';
-        return;
     }
-    document.getElementById(socketId).remove();
-});
-
-/**
- * Handle errors
- */
-webrtc.addEventListener('error', (e) => {
-    const error = e.detail.error;
-    console.error(error);
-
-    notify(error);
-});
-
-/**
- * Handle notifications
- */
-webrtc.addEventListener('notification', (e) => {
-    const notif = e.detail.notification;
-    console.log(notif);
-
-    notify(notif);
 });

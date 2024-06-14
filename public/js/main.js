@@ -1,50 +1,50 @@
 'use strict';
 
-const socket = io.connect();
+const socket = io();
 
 const localVideo = document.querySelector('#localVideo-container video');
 const videoGrid = document.querySelector('#videoGrid');
 const notification = document.querySelector('#notification');
 const notify = (message) => {
-    notification.innerHTML = message;
+  notification.innerHTML = message;
 };
 
 const pcConfig = {
-    iceServers: [
-        {
-            urls: [
-                'stun:stun.l.google.com:19302',
-                'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302',
-                'stun:stun3.l.google.com:19302',
-                'stun:stun4.l.google.com:19302',
-            ],
-        },
-        {
-            urls: 'turn:numb.viagenie.ca',
-            credential: 'muazkh',
-            username: 'webrtc@live.com',
-        },
-        {
-            urls: 'turn:numb.viagenie.ca',
-            credential: 'muazkh',
-            username: 'webrtc@live.com',
-        },
-        {
-            urls: 'turn:192.158.29.39:3478?transport=udp',
-            credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-            username: '28224511:1379330808',
-        },
-    ],
+  iceServers: [
+    {
+      urls: [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:stun3.l.google.com:19302',
+        'stun:stun4.l.google.com:19302',
+      ],
+    },
+    {
+      urls: 'turn:numb.viagenie.ca',
+      credential: 'muazkh',
+      username: 'webrtc@live.com',
+    },
+    {
+      urls: 'turn:numb.viagenie.ca',
+      credential: 'muazkh',
+      username: 'webrtc@live.com',
+    },
+    {
+      urls: 'turn:192.158.29.39:3478?transport=udp',
+      credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+      username: '28224511:1379330808',
+    },
+  ],
 };
 
 /**
  * Initialize webrtc
  */
 const webrtc = new Webrtc(socket, pcConfig, {
-    log: true,
-    warn: true,
-    error: true,
+  log: true,
+  warn: true,
+  error: true,
 });
 
 /**
@@ -53,23 +53,26 @@ const webrtc = new Webrtc(socket, pcConfig, {
 const roomInput = document.querySelector('#roomId');
 const joinBtn = document.querySelector('#joinBtn');
 joinBtn.addEventListener('click', () => {
-    const room = roomInput.value;
-    if (!room) {
-        notify('Room ID not provided');
-        return;
-    }
+  const room = roomInput.value;
+  if (!room) {
+    notify('Room ID not provided');
+    return;
+  }
 
-    webrtc.joinRoom(room);
+  // Generate a unique user ID (you can use a more robust method like UUID)
+  const userId = `user-${Math.random().toString(36).substring(2, 15)}`;
+
+  webrtc.joinRoom(room, userId);
 });
 
 const setTitle = (status, e) => {
-    const room = e.detail.roomId;
+  const room = e.detail.roomId;
 
-    console.log(`Room ${room} was ${status}`);
+  console.log(`Room ${room} was ${status}`);
 
-    notify(`Room ${room} was ${status}`);
-    document.querySelector('h1').textContent = `Room: ${room}`;
-    webrtc.gotStream();
+  notify(`Room ${room} was ${status}`);
+  document.querySelector('h1').textContent = `Room: ${room}`;
+  webrtc.gotStream();
 };
 webrtc.addEventListener('createdRoom', setTitle.bind(this, 'created'));
 webrtc.addEventListener('joinedRoom', setTitle.bind(this, 'joined'));
@@ -79,99 +82,99 @@ webrtc.addEventListener('joinedRoom', setTitle.bind(this, 'joined'));
  */
 const leaveBtn = document.querySelector('#leaveBtn');
 leaveBtn.addEventListener('click', () => {
-    webrtc.leaveRoom();
+  webrtc.leaveRoom();
 });
 webrtc.addEventListener('leftRoom', (e) => {
-    const room = e.detail.roomId;
-    document.querySelector('h1').textContent = '';
-    notify(`Left the room ${room}`);
+  const room = e.detail.roomId;
+  document.querySelector('h1').textContent = '';
+  notify(`Left the room ${room}`);
 });
 
 /**
  * Get local media
  */
 webrtc
-    .getLocalStream(true, { width: 640, height: 480 })
-    .then((stream) => (localVideo.srcObject = stream));
+  .getLocalStream(true, { width: 640, height: 480 })
+  .then((stream) => (localVideo.srcObject = stream));
 
 webrtc.addEventListener('kicked', () => {
-    document.querySelector('h1').textContent = 'You were kicked out';
-    videoGrid.innerHTML = '';
+  document.querySelector('h1').textContent = 'You were kicked out';
+  videoGrid.innerHTML = '';
 });
 
 webrtc.addEventListener('userLeave', (e) => {
-    console.log(`user ${e.detail.socketId} left room`);
+  console.log(`user ${e.detail.socketId} left room`);
 });
 
 /**
  * Handle new user connection
  */
 webrtc.addEventListener('newUser', (e) => {
-    const socketId = e.detail.socketId;
-    const stream = e.detail.stream;
+  const socketId = e.detail.socketId;
+  const stream = e.detail.stream;
 
-    const videoContainer = document.createElement('div');
-    videoContainer.setAttribute('class', 'grid-item');
-    videoContainer.setAttribute('id', socketId);
+  const videoContainer = document.createElement('div');
+  videoContainer.setAttribute('class', 'grid-item');
+  videoContainer.setAttribute('id', socketId);
 
-    const video = document.createElement('video');
-    video.setAttribute('autoplay', true);
-    video.setAttribute('muted', true); // set to false
-    video.setAttribute('playsinline', true);
-    video.srcObject = stream;
+  const video = document.createElement('video');
+  video.setAttribute('autoplay', true);
+  video.setAttribute('muted', true); // set to false
+  video.setAttribute('playsinline', true);
+  video.srcObject = stream;
 
-    const p = document.createElement('p');
-    p.textContent = socketId;
+  const p = document.createElement('p');
+  p.textContent = socketId;
 
-    videoContainer.append(p);
-    videoContainer.append(video);
+  videoContainer.append(p);
+  videoContainer.append(video);
 
-    // If user is admin add kick buttons
-    if (webrtc.isAdmin) {
-        const kickBtn = document.createElement('button');
-        kickBtn.setAttribute('class', 'kick_btn');
-        kickBtn.textContent = 'Kick';
+  // If user is admin add kick buttons
+  if (webrtc.isAdmin) {
+    const kickBtn = document.createElement('button');
+    kickBtn.setAttribute('class', 'kick_btn');
+    kickBtn.textContent = 'Kick';
 
-        kickBtn.addEventListener('click', () => {
-            webrtc.kickUser(socketId);
-        });
+    kickBtn.addEventListener('click', () => {
+      webrtc.kickUser(socketId);
+    });
 
-        videoContainer.append(kickBtn);
-    }
-    videoGrid.append(videoContainer);
+    videoContainer.append(kickBtn);
+  }
+  videoGrid.append(videoContainer);
 });
 
 /**
  * Handle user got removed
  */
 webrtc.addEventListener('removeUser', (e) => {
-    const socketId = e.detail.socketId;
-    if (!socketId) {
-        // remove all remote stream elements
-        videoGrid.innerHTML = '';
-        return;
-    }
-    document.getElementById(socketId).remove();
+  const socketId = e.detail.socketId;
+  if (!socketId) {
+    // remove all remote stream elements
+    videoGrid.innerHTML = '';
+    return;
+  }
+  document.getElementById(socketId).remove();
 });
 
 /**
  * Handle errors
  */
 webrtc.addEventListener('error', (e) => {
-    const error = e.detail.error;
-    console.error(error);
+  const error = e.detail.error;
+  console.error(error);
 
-    notify(error);
+  notify(error);
 });
 
 /**
  * Handle notifications
  */
 webrtc.addEventListener('notification', (e) => {
-    const notif = e.detail.notification;
-    console.log(notif);
+  const notif = e.detail.notification;
+  console.log(notif);
 
-    notify(notif);
+  notify(notif);
 });
 
 /**
@@ -179,20 +182,23 @@ webrtc.addEventListener('notification', (e) => {
  */
 const shareScreenBtn = document.querySelector('#shareScreenBtn');
 shareScreenBtn.addEventListener('click', async () => {
-    try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        // Handle screen stream just like local stream
-        webrtc.addTrack(screenStream.getTracks()[0], screenStream);
+  try {
+    const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+    
+    // Replace local video with screen stream
+    localVideo.srcObject = screenStream;
 
-        // Replace local video with screen stream
-        localVideo.srcObject = screenStream;
+    screenStream.getTracks().forEach(track => {
+      // Add screen stream tracks to the peer connection
+      webrtc.peerConnection.addTrack(track, screenStream);
+    });
 
-        screenStream.getTracks()[0].addEventListener('ended', () => {
-            // When the screen share stops, switch back to the camera stream
-            webrtc.getLocalStream(true, { width: 640, height: 480 })
-                .then((stream) => (localVideo.srcObject = stream));
-        });
-    } catch (error) {
-        notify(`Error sharing screen: ${error.message}`);
-    }
+    screenStream.getTracks()[0].addEventListener('ended', () => {
+      // When the screen share stops, switch back to the camera stream
+      webrtc.getLocalStream(true, { width: 640, height: 480 })
+        .then((stream) => (localVideo.srcObject = stream));
+    });
+  } catch (error) {
+    notify(`Error sharing screen: ${error.message}`);
+  }
 });

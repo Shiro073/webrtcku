@@ -208,12 +208,4 @@ class Webrtc {
     this.dispatchEvent('kicked');
     this.leaveRoom();
   }
-
-  gotStream() {
-    // This method is called after the room is joined, to trigger signaling
-    // for initial connection if not the admin
-    if (!this.isAdmin) {
-      this.dispatchEvent('notification', { notification: 'Waiting for admin...' });
-    }
-  }
 }

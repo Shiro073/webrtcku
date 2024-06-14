@@ -1,0 +1,70 @@
+const express = require('express');
+const app = express();
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
+
+const rooms = {}; // Store room information
+
+io.on('connection', (socket) => {
+    console.log('A user connected');
+
+    socket.on('create or join', (room) => {
+        if (!rooms[room]) {
+            // Create new room
+            rooms[room] = { users: [] };
+            rooms[room].users.push(socket.id);
+            socket.join(room);
+            socket.emit('created', room, socket.id);
+            console.log('Created room:', room);
+        } else {
+            // Join existing room
+            rooms[room].users.push(socket.id);
+            socket.join(room);
+            socket.emit('joined', room, socket.id);
+            socket.to(room).emit('join', room);
+            console.log('Joined room:', room);
+        }
+    });
+
+    socket.on('leave room', (room) => {
+        rooms[room].users = rooms[room].users.filter((id) => id !== socket.id);
+        socket.leave(room);
+        console.log('Left room:', room);
+        io.to(room).emit('left room', room);
+    });
+
+    socket.on('message', (message, toId, roomId) => {
+        console.log('Message received:', message);
+        if (toId) {
+            // Send message to a specific user
+            socket.to(toId).emit('message', message);
+        } else if (roomId) {
+            // Send message to all users in the room
+            socket.to(roomId).emit('message', message);
+        }
+    });
+
+    socket.on('kickout', (socketId, room) => {
+        console.log('Kicked user:', socketId);
+        socket.to(room).emit('kickout', socketId);
+    });
+
+    socket.on('disconnect', () => {
+        console.log('A user disconnected');
+        for (const room in rooms) {
+            if (rooms[room].users.includes(socket.id)) {
+                rooms[room].users = rooms[room].users.filter(
+                    (id) => id !== socket.id
+                );
+                socket.leave(room);
+                io.to(room).emit('left room', room);
+                break;
+            }
+        }
+    });
+});
+
+const port = process.env.PORT || 3000;
+http.listen(port, () => {
+    console.log('Server listening on port', port);
+});

@@ -77,7 +77,10 @@ class Webrtc {
     this.dispatchEvent('joinedRoom', { roomId: roomId });
     this.isAdmin = false; // Initially set as not admin
 
-    this.createPeerConnection();
+    this.getLocalStream().then(() => {
+      this.createPeerConnection();
+      this.createOffer();
+    });
   }
 
   // Create Peer Connection
@@ -104,13 +107,7 @@ class Webrtc {
 
   // Handle new user connected
   onUserConnected(userId) {
-    if (this.isAdmin) {
-      // Admin creates offer and sends to new user
-      this.createOffer();
-    } else {
-      // Other users wait for offer
-      console.log('Waiting for offer from admin...');
-    }
+    this.createOffer();
   }
 
   // Handle user disconnected
@@ -170,9 +167,7 @@ class Webrtc {
 
   // Handle negotiation needed
   onNegotiationNeeded() {
-    if (this.isAdmin) {
-      this.createOffer();
-    }
+    this.createOffer();
   }
 
   // Create offer

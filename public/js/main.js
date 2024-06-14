@@ -196,4 +196,12 @@ webrtc.addEventListener('joinedRoom', (e) => {
 });
 
 // Start the app and create a room
-webrtc.createRoom();
+const autoJoinRoom = () => {
+    const room = `room-${Math.random().toString(36).substr(2, 9)}`;
+    roomInput.value = room;
+    webrtc.createRoom(room);
+    webrtc.joinRoom(room);
+};
+
+autoJoinRoom();
+

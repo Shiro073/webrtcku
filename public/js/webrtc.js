@@ -9,7 +9,6 @@ class Webrtc {
     this.localStream = null;
     this.isAdmin = false;
     this.roomId = null;
-    this.roomName = null;
 
     this.eventListeners = new Map();
 
@@ -36,10 +35,6 @@ class Webrtc {
     this.socket.on('kicked', () => {
       this.onKicked();
     });
-
-    this.socket.on('new-room', (roomId, roomName) => {
-      this.onNewRoom(roomId, roomName);
-    });
   }
 
   // Add event listener
@@ -62,22 +57,17 @@ class Webrtc {
   // Get local media stream
   getLocalStream(audio = true, video = true) {
     return navigator.mediaDevices
-     .getUserMedia({
+      .getUserMedia({
         video: video,
         audio: audio,
       })
-     .then((stream) => {
+      .then((stream) => {
         this.localStream = stream;
         return stream;
       })
-     .catch((error) => {
+      .catch((error) => {
         this.dispatchEvent('error', { error: error.message });
       });
-  }
-
-  // Create a new room
-  createRoom(roomName) {
-    this.socket.emit('create-room', roomName);
   }
 
   // Join a room
@@ -146,16 +136,16 @@ class Webrtc {
   // Handle offer
   onOffer(offer) {
     this.peerConnection
-     .setRemoteDescription(offer)
-     .then(() => this.peerConnection.createAnswer())
-     .then((answer) => {
+      .setRemoteDescription(offer)
+      .then(() => this.peerConnection.createAnswer())
+      .then((answer) => {
         this.peerConnection
-         .setLocalDescription(answer)
-         .then(() => {
+          .setLocalDescription(answer)
+          .then(() => {
             this.socket.emit('answer', this.roomId, answer);
           });
       })
-     .catch((error) => {
+      .catch((error) => {
         this.dispatchEvent('error', { error: error.message });
       });
   }
@@ -163,8 +153,8 @@ class Webrtc {
   // Handle answer
   onAnswer(answer) {
     this.peerConnection
-     .setRemoteDescription(answer)
-     .catch((error) => {
+      .setRemoteDescription(answer)
+      .catch((error) => {
         this.dispatchEvent('error', { error: error.message });
       });
   }
@@ -172,6 +162,63 @@ class Webrtc {
   // Handle candidate
   onCandidate(candidate) {
     this.peerConnection
-     .addIceCandidate(candidate)
-     .catch((error) => {
-        this.dispatchEvent('error
+      .addIceCandidate(candidate)
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
+
+  // Handle negotiation needed
+  onNegotiationNeeded() {
+    if (this.isAdmin) {
+      this.createOffer();
+    }
+  }
+
+  // Create offer
+  createOffer() {
+    this.peerConnection
+      .createOffer()
+      .then((offer) => {
+        this.peerConnection
+          .setLocalDescription(offer)
+          .then(() => {
+            this.socket.emit('create-offer', this.roomId, offer);
+          });
+      })
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
+
+  // Leave the room
+  leaveRoom() {
+    this.dispatchEvent('leftRoom', { roomId: this.roomId });
+    this.socket.emit('leave-room', this.roomId);
+
+    // Close the peer connection
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
+  }
+
+  // Kick a user
+  kickUser(socketId) {
+    this.socket.emit('kick-user', this.roomId, socketId);
+  }
+
+  // Handle kicked event
+  onKicked() {
+    this.dispatchEvent('kicked');
+    this.leaveRoom();
+  }
+
+  gotStream() {
+    // This method is called after the room is joined, to trigger signaling
+    // for initial connection if not the admin
+    if (!this.isAdmin) {
+      this.dispatchEvent('notification', { notification: 'Waiting for admin...' });
+    }
+  }
+}

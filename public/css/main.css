@@ -1,3 +1,12 @@
+body {
+  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(https://cdnb.artstation.com/p/assets/images/images/054/906/567/large/wachajack-inc-pub-2519x1417-2.jpg?1665645031);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  background-size: cover;
+  color: #fff;
+  font-family: sans-serif;
+}
+
 h1 {
   text-align: center;
   color: #fff;
@@ -55,20 +64,6 @@ h1 {
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-
-body {
-  background: linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(https://cdnb.artstation.com/p/assets/images/images/054/906/567/large/wachajack-inc-pub-2519x1417-2.jpg?1665645031);
-  background-repeat: no-repeat;
-  background-attachment: fixed;
-  background-size: cover;
-  color: #fff;
-  font-family: sans-serif;
-}
-
-* {
-  margin: 0;
-  padding: 0;
 }
 
 .join-button {

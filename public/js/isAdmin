@@ -1,0 +1,15 @@
+joinRoom.addEventListener('click', () => {
+  const room = roomInput.value;
+  if (!room) {
+    notify('Room ID not provided');
+    return;
+  }
+
+  // Generate a unique user ID (you can use a more robust method like UUID)
+  const userId = `user-${Math.random().toString(36).substring(2, 15)}`;
+
+  // Set yourself as the admin
+  webrtc.isAdmin = true;
+
+  webrtc.joinRoom(room, userId);
+});

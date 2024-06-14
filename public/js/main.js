@@ -1,6 +1,6 @@
 'use strict';
 
-const socket = io.connect('http://your-ngrok-url'); // Replace with your ngrok URL
+const socket = io.connect();
 
 const localVideo = document.querySelector('#localVideo-container video');
 const videoGrid = document.querySelector('#videoGrid');
@@ -20,17 +20,26 @@ const pcConfig = {
                 'stun:stun4.l.google.com:19302',
             ],
         },
-        // Add TURN servers if needed for NAT traversal
-        // {
-        //     urls: 'turn:your-turn-server-url',
-        //     credential: 'your-turn-server-credential',
-        //     username: 'your-turn-server-username',
-        // }
+        {
+            urls: 'turn:numb.viagenie.ca',
+            credential: 'muazkh',
+            username: 'webrtc@live.com',
+        },
+        {
+            urls: 'turn:numb.viagenie.ca',
+            credential: 'muazkh',
+            username: 'webrtc@live.com',
+        },
+        {
+            urls: 'turn:192.158.29.39:3478?transport=udp',
+            credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
+            username: '28224511:1379330808',
+        },
     ],
 };
 
 /**
- * Initialize WebRTC
+ * Initialize webrtc
  */
 const webrtc = new Webrtc(socket, pcConfig, {
     log: true,
@@ -55,7 +64,9 @@ joinBtn.addEventListener('click', () => {
 
 const setTitle = (status, e) => {
     const room = e.detail.roomId;
+
     console.log(`Room ${room} was ${status}`);
+
     notify(`Room ${room} was ${status}`);
     document.querySelector('h1').textContent = `Room: ${room}`;
     webrtc.gotStream();
@@ -149,6 +160,7 @@ webrtc.addEventListener('removeUser', (e) => {
 webrtc.addEventListener('error', (e) => {
     const error = e.detail.error;
     console.error(error);
+
     notify(error);
 });
 
@@ -158,50 +170,35 @@ webrtc.addEventListener('error', (e) => {
 webrtc.addEventListener('notification', (e) => {
     const notif = e.detail.notification;
     console.log(notif);
+
     notify(notif);
 });
 
-/**
- * Share Screen
- */
-const shareScreenBtn = document.querySelector('#shareScreenBtn');
-shareScreenBtn.addEventListener('click', async () => {
-    try {
-        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-        
-        // Replace local video with screen stream
-        localVideo.srcObject = screenStream;
-
-        screenStream.getTracks().forEach(track => {
-            // Add screen stream tracks to the peer connection
-            webrtc.peerConnection.addTrack(track, screenStream);
+// Add a button to share screen
+const shareScreenBtn = document.createElement('button');
+shareScreenBtn.textContent = 'Share Screen';
+shareScreenBtn.addEventListener('click', () => {
+    webrtc.shareScreen()
+        .then((stream) => {
+            // Update local video
+            localVideo.srcObject = stream;
+        })
+        .catch((error) => {
+            console.error('Error sharing screen:', error);
+            notify('Error sharing screen');
         });
-
-        screenStream.getTracks()[0].addEventListener('ended', () => {
-            // When the screen share stops, switch back to the camera stream
-            webrtc.getLocalStream(true, { width: 640, height: 480 })
-                .then((stream) => (localVideo.srcObject = stream));
-        });
-    } catch (error) {
-        notify(`Error sharing screen: ${error.message}`);
-    }
 });
 
-// Make the first user joining the room the admin
-webrtc.addEventListener('joinedRoom', (e) => {
-    if (e.detail.isAdmin) {
-        webrtc.isAdmin = true;
-        console.log('You are now the admin!');
-    }
+// Add the button to the DOM
+document.body.appendChild(shareScreenBtn);
+
+// Handle screen sharing events
+webrtc.addEventListener('screenSharingStarted', (e) => {
+    console.log('Screen sharing started!');
+    // You might want to add a UI element here to indicate screen sharing
 });
 
-// Start the app and create a room
-const autoJoinRoom = () => {
-    const room = `room-${Math.random().toString(36).substr(2, 9)}`;
-    roomInput.value = room;
-    webrtc.createRoom(room);
-    webrtc.joinRoom(room);
-};
-
-autoJoinRoom();
-
+webrtc.addEventListener('screenSharingStopped', (e) => {
+    console.log('Screen sharing stopped!');
+    // You might want to add a UI element here to indicate screen sharing stopped
+});

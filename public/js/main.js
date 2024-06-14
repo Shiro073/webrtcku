@@ -1,204 +1,211 @@
 'use strict';
 
-const socket = io.connect();
+class Webrtc {
+  constructor(socket, pcConfig, options) {
+    this.socket = socket;
+    this.pcConfig = pcConfig;
+    this.options = options;
+    this.peerConnection = null;
+    this.localStream = null;
+    this.isAdmin = false;
+    this.roomId = null;
 
-const localVideo = document.querySelector('#localVideo-container video');
-const videoGrid = document.querySelector('#videoGrid');
-const notification = document.querySelector('#notification');
-const notify = (message) => {
-    notification.innerHTML = message;
-};
+    this.eventListeners = new Map();
 
-const pcConfig = {
-    iceServers: [
-        {
-            urls: [
-                'stun:stun.l.google.com:19302',
-                'stun:stun1.l.google.com:19302',
-                'stun:stun2.l.google.com:19302',
-                'stun:stun3.l.google.com:19302',
-                'stun:stun4.l.google.com:19302',
-            ],
-        },
-        {
-            urls: 'turn:numb.viagenie.ca',
-            credential: 'muazkh',
-            username: 'webrtc@live.com',
-        },
-        {
-            urls: 'turn:numb.viagenie.ca',
-            credential: 'muazkh',
-            username: 'webrtc@live.com',
-        },
-        {
-            urls: 'turn:192.158.29.39:3478?transport=udp',
-            credential: 'JZEOEt2V3Qb0y27GRntt2u2PAYA=',
-            username: '28224511:1379330808',
-        },
-    ],
-};
+    this.socket.on('user-connected', (userId) => {
+      this.onUserConnected(userId);
+    });
 
-/**
- * Initialize webrtc
- */
-const webrtc = new Webrtc(socket, pcConfig, {
-    log: true,
-    warn: true,
-    error: true,
-});
+    this.socket.on('user-disconnected', (userId) => {
+      this.onUserDisconnected(userId);
+    });
 
-/**
- * Create or join a room
- */
-const roomInput = document.querySelector('#roomId');
-const joinBtn = document.querySelector('#joinBtn');
-joinBtn.addEventListener('click', () => {
-    const room = roomInput.value;
-    if (!room) {
-        notify('Room ID not provided');
-        return;
+    this.socket.on('create-offer', (offer) => {
+      this.onOffer(offer);
+    });
+
+    this.socket.on('answer', (answer) => {
+      this.onAnswer(answer);
+    });
+
+    this.socket.on('candidate', (candidate) => {
+      this.onCandidate(candidate);
+    });
+
+    this.socket.on('kicked', () => {
+      this.onKicked();
+    });
+  }
+
+  // Add event listener
+  addEventListener(event, listener) {
+    if (!this.eventListeners.has(event)) {
+      this.eventListeners.set(event, []);
     }
+    this.eventListeners.get(event).push(listener);
+  }
 
-    webrtc.joinRoom(room);
-});
-
-const setTitle = (status, e) => {
-    const room = e.detail.roomId;
-
-    console.log(`Room ${room} was ${status}`);
-
-    notify(`Room ${room} was ${status}`);
-    document.querySelector('h1').textContent = `Room: ${room}`;
-    webrtc.gotStream();
-};
-webrtc.addEventListener('createdRoom', setTitle.bind(this, 'created'));
-webrtc.addEventListener('joinedRoom', setTitle.bind(this, 'joined'));
-
-/**
- * Leave the room
- */
-const leaveBtn = document.querySelector('#leaveBtn');
-leaveBtn.addEventListener('click', () => {
-    webrtc.leaveRoom();
-});
-webrtc.addEventListener('leftRoom', (e) => {
-    const room = e.detail.roomId;
-    document.querySelector('h1').textContent = '';
-    notify(`Left the room ${room}`);
-});
-
-/**
- * Get local media
- */
-webrtc
-    .getLocalStream(true, { width: 640, height: 480 })
-    .then((stream) => (localVideo.srcObject = stream));
-
-webrtc.addEventListener('kicked', () => {
-    document.querySelector('h1').textContent = 'You were kicked out';
-    videoGrid.innerHTML = '';
-});
-
-webrtc.addEventListener('userLeave', (e) => {
-    console.log(`user ${e.detail.socketId} left room`);
-});
-
-/**
- * Handle new user connection
- */
-webrtc.addEventListener('newUser', (e) => {
-    const socketId = e.detail.socketId;
-    const stream = e.detail.stream;
-
-    const videoContainer = document.createElement('div');
-    videoContainer.setAttribute('class', 'grid-item');
-    videoContainer.setAttribute('id', socketId);
-
-    const video = document.createElement('video');
-    video.setAttribute('autoplay', true);
-    video.setAttribute('muted', true); // set to false
-    video.setAttribute('playsinline', true);
-    video.srcObject = stream;
-
-    const p = document.createElement('p');
-    p.textContent = socketId;
-
-    videoContainer.append(p);
-    videoContainer.append(video);
-
-    // If user is admin add kick buttons
-    if (webrtc.isAdmin) {
-        const kickBtn = document.createElement('button');
-        kickBtn.setAttribute('class', 'kick_btn');
-        kickBtn.textContent = 'Kick';
-
-        kickBtn.addEventListener('click', () => {
-            webrtc.kickUser(socketId);
-        });
-
-        videoContainer.append(kickBtn);
+  // Dispatch event
+  dispatchEvent(event, detail) {
+    if (this.eventListeners.has(event)) {
+      this.eventListeners.get(event).forEach((listener) => {
+        listener({ detail });
+      });
     }
-    videoGrid.append(videoContainer);
-});
+  }
 
-/**
- * Handle user got removed
- */
-webrtc.addEventListener('removeUser', (e) => {
-    const socketId = e.detail.socketId;
-    if (!socketId) {
-        // remove all remote stream elements
-        videoGrid.innerHTML = '';
-        return;
+  // Get local media stream
+  getLocalStream(audio = true, video = true) {
+    return navigator.mediaDevices
+      .getUserMedia({
+        video: video,
+        audio: audio,
+      })
+      .then((stream) => {
+        this.localStream = stream;
+        return stream;
+      })
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
+
+  // Join a room
+  joinRoom(roomId, userId) {
+    this.roomId = roomId;
+    this.socket.emit('join-room', roomId, userId);
+    this.dispatchEvent('joinedRoom', { roomId: roomId });
+    this.isAdmin = false; // Initially set as not admin
+
+    this.getLocalStream().then(() => {
+      this.createPeerConnection();
+      this.createOffer();
+    });
+  }
+
+  // Create Peer Connection
+  createPeerConnection() {
+    this.peerConnection = new RTCPeerConnection(this.pcConfig);
+
+    this.peerConnection.ontrack = (event) => {
+      this.onTrack(event);
+    };
+
+    this.peerConnection.onicecandidate = (event) => {
+      this.onIceCandidate(event);
+    };
+
+    this.peerConnection.onnegotiationneeded = () => {
+      this.onNegotiationNeeded();
+    };
+
+    // Add local stream to the peer connection
+    this.localStream.getTracks().forEach((track) => {
+      this.peerConnection.addTrack(track, this.localStream);
+    });
+  }
+
+  // Handle new user connected
+  onUserConnected(userId) {
+    this.createOffer();
+  }
+
+  // Handle user disconnected
+  onUserDisconnected(userId) {
+    this.dispatchEvent('removeUser', { socketId: userId });
+  }
+
+  // Handle ICE candidate
+  onIceCandidate(event) {
+    if (event.candidate) {
+      this.socket.emit('candidate', this.roomId, event.candidate);
     }
-    document.getElementById(socketId).remove();
-});
+  }
 
-/**
- * Handle errors
- */
-webrtc.addEventListener('error', (e) => {
-    const error = e.detail.error;
-    console.error(error);
+  // Handle track received
+  onTrack(event) {
+    this.dispatchEvent('newUser', {
+      socketId: event.streams[0].id,
+      stream: event.streams[0],
+    });
+  }
 
-    notify(error);
-});
+  // Handle offer
+  onOffer(offer) {
+    this.peerConnection
+      .setRemoteDescription(offer)
+      .then(() => this.peerConnection.createAnswer())
+      .then((answer) => {
+        this.peerConnection
+          .setLocalDescription(answer)
+          .then(() => {
+            this.socket.emit('answer', this.roomId, answer);
+          });
+      })
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
 
-/**
- * Handle notifications
- */
-webrtc.addEventListener('notification', (e) => {
-    const notif = e.detail.notification;
-    console.log(notif);
+  // Handle answer
+  onAnswer(answer) {
+    this.peerConnection
+      .setRemoteDescription(answer)
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
 
-    notify(notif);
-});
+  // Handle candidate
+  onCandidate(candidate) {
+    this.peerConnection
+      .addIceCandidate(candidate)
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
 
-// Add a button to share screen
-const shareScreenBtn = document.createElement('button');
-shareScreenBtn.textContent = 'Share Screen';
-shareScreenBtn.addEventListener('click', () => {
-    webrtc.shareScreen()
-        .then((stream) => {
-            // Update local video
-            localVideo.srcObject = stream;
-        })
-        .catch((error) => {
-            console.error('Error sharing screen:', error);
-            notify('Error sharing screen');
-        });
-});
+  // Handle negotiation needed
+  onNegotiationNeeded() {
+    this.createOffer();
+  }
 
-// Add the button to the DOM
-document.body.appendChild(shareScreenBtn);
+  // Create offer
+  createOffer() {
+    this.peerConnection
+      .createOffer()
+      .then((offer) => {
+        this.peerConnection
+          .setLocalDescription(offer)
+          .then(() => {
+            this.socket.emit('create-offer', this.roomId, offer);
+          });
+      })
+      .catch((error) => {
+        this.dispatchEvent('error', { error: error.message });
+      });
+  }
 
-// Handle screen sharing events
-webrtc.addEventListener('screenSharingStarted', (e) => {
-    console.log('Screen sharing started!');
-    // You might want to add a UI element here to indicate screen sharing
-});
+  // Leave the room
+  leaveRoom() {
+    this.dispatchEvent('leftRoom', { roomId: this.roomId });
+    this.socket.emit('leave-room', this.roomId);
 
-webrtc.addEventListener('screenSharingStopped', (e) => {
-    console.log('Screen sharing stopped!');
-    // You might want to add a UI element here to indicate screen sharing stopped
-});
+    // Close the peer connection
+    if (this.peerConnection) {
+      this.peerConnection.close();
+      this.peerConnection = null;
+    }
+  }
+
+  // Kick a user
+  kickUser(socketId) {
+    this.socket.emit('kick-user', this.roomId, socketId);
+  }
+
+  // Handle kicked event
+  onKicked() {
+    this.dispatchEvent('kicked');
+    this.leaveRoom();
+  }
+}
